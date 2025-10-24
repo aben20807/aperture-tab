@@ -5,7 +5,6 @@
   "description": "Replace your new tab with beautiful random Unsplash images. Features unlimited history, favorites, and more!",
   "permissions": [
     "storage",
-    "alarms",
     "tabs"
   ],
   "host_permissions": [
