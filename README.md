@@ -96,6 +96,7 @@ Built with:
 
 ## License
 
+This project is licensed under the Apache 2.0 License - see the [LICENSE](https://github.com/aben20807/aperture-tab/blob/master/LICENSE) file for details.
 Photos provided by Unsplash photographers under the [Unsplash License](https://unsplash.com/license).
 
 ## Credits
