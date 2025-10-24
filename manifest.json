@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "Aperture Tab",
+  "version": "1.0.0",
+  "description": "Replace your new tab with beautiful random Unsplash images. Features unlimited history, favorites, and more!",
+  "permissions": [
+    "storage",
+    "alarms",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://api.unsplash.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "options_ui": {
+    "page": "settings.html",
+    "open_in_tab": true
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "commands": {
+    "refresh-image": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+R"
+      },
+      "description": "Refresh current image"
+    },
+    "toggle-history": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+H"
+      },
+      "description": "Toggle history panel"
+    },
+    "toggle-favorite": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+F"
+      },
+      "description": "Toggle favorite for current image"
+    }
+  }
+}

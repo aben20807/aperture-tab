@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aperture Tab</title>
+  <link rel="stylesheet" href="newtab.css">
+</head>
+<body>
+  <!-- Main Image Container -->
+  <div id="imageContainer" class="image-container">
+    <img id="mainImage" src="" alt="Unsplash Image" class="main-image">
+  </div>
+
+  <!-- Loading Indicator -->
+  <div id="loadingIndicator" class="loading-indicator">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Error Message -->
+  <div id="errorMessage" class="error-message hidden">
+    <p>Failed to load image. Please check your API key and internet connection.</p>
+    <button id="retryBtn">Retry</button>
+  </div>
+
+  <!-- Controls Overlay -->
+  <div class="controls-overlay">
+    <div class="top-controls">
+      <button id="settingsBtn" class="control-btn" title="Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v6m0 6v6m9-9h-6m-6 0H3"></path>
+        </svg>
+      </button>
+      <button id="historyBtn" class="control-btn" title="History (Ctrl+Shift+H)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <div class="bottom-controls">
+      <div class="image-info" id="imageInfo">
+        <div class="photographer">
+          <span>Photo by </span>
+          <a id="photographerLink" href="#" target="_blank" rel="noopener"></a>
+          <span> on </span>
+          <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a>
+        </div>
+        <div class="image-location" id="imageLocation"></div>
+        <div class="camera-info" id="cameraInfo"></div>
+      </div>
+
+      <div class="action-buttons">
+        <button id="favoriteBtn" class="action-btn" title="Add to Favorites (Ctrl+Shift+F)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>
+        </button>
+        <button id="viewOnUnsplashBtn" class="action-btn" title="View on Unsplash">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </button>
+        <button id="refreshBtn" class="action-btn refresh-btn" title="Refresh (Space)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Panel -->
+  <div id="historyPanel" class="history-panel hidden">
+    <div class="history-header">
+      <h2>History</h2>
+      <button id="closeHistoryBtn" class="close-btn">×</button>
+    </div>
+    <div class="history-tabs">
+      <button class="history-tab active" data-tab="all">All</button>
+      <button class="history-tab" data-tab="favorites">Favorites</button>
+    </div>
+    <div id="historyContent" class="history-content">
+      <div class="history-grid" id="historyGrid"></div>
+    </div>
+  </div>
+
+  <script src="lib/unsplash-api.js"></script>
+  <script src="newtab.js"></script>
+</body>
+</html>
