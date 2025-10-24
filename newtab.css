@@ -30,7 +30,6 @@ body {
   height: 100%;
   object-fit: cover;
   transition: opacity 0.5s ease-in-out;
-  opacity: 0;
 }
 
 .main-image.loaded {

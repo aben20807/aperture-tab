@@ -189,6 +189,7 @@ body::before {
 
 .setting-item input[type="text"],
 .setting-item input[type="password"],
+.setting-item input[type="number"],
 .setting-item select {
   width: 100%;
   padding: 0.75rem;
@@ -203,11 +204,33 @@ body::before {
 
 .setting-item input[type="text"]:focus,
 .setting-item input[type="password"]:focus,
+.setting-item input[type="number"]:focus,
 .setting-item select:focus {
   outline: none;
   border-color: #1a1a2e;
   background: #fff;
   box-shadow: 0 0 0 4px rgba(26, 26, 46, 0.05);
+}
+
+/* Number inputs - smaller width, centered text */
+.setting-item input[type="number"] {
+  max-width: 200px;
+  text-align: center;
+  font-weight: 500;
+  font-size: 1.1rem;
+  color: #1a1a2e;
+}
+
+/* Remove number input spinners for cleaner look */
+.setting-item input[type="number"]::-webkit-inner-spin-button,
+.setting-item input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.setting-item input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 /* API Key Input Wrapper */

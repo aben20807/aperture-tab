@@ -6,7 +6,9 @@ chrome.runtime.onInstalled.addListener(() => {
   
   // Set default settings
   const defaultSettings = {
-    autoRefresh: 'manual', // manual, 30min, 1hour, daily
+    autoRefresh: 'manual', // manual, newtab, 30min, 1hour, daily, custom
+    customInterval: 60, // Custom interval in minutes
+    queueSize: 10, // Number of images to prefetch
     imageQuality: 'full', // regular, full, raw
     collections: [], // Array of collection IDs
     searchQuery: '', // Search term for images
@@ -22,19 +24,51 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // Handle auto-refresh based on settings
-chrome.alarms.onAlarm.addListener((alarm) => {
+chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'autoRefresh') {
-    // Notify all new tab pages to refresh
-    chrome.runtime.sendMessage({ action: 'autoRefresh' }).catch(() => {
-      // No tabs listening, that's okay
-    });
+    console.log('Auto-refresh alarm triggered, loading new photo...');
+    
+    // Get settings and load a new photo
+    const data = await chrome.storage.local.get(['settings', 'imageQueue']);
+    const settings = data.settings;
+    const imageQueue = data.imageQueue || [];
+    
+    if (!settings || !settings.apiKey) {
+      console.log('No API key, skipping auto-refresh');
+      return;
+    }
+    
+    // Get next photo from queue
+    let photo = null;
+    if (imageQueue.length > 0) {
+      photo = imageQueue.shift();
+      await chrome.storage.local.set({ imageQueue });
+      console.log('Using photo from queue, remaining:', imageQueue.length);
+    }
+    
+    if (photo) {
+      // Save as new global photo with current timestamp
+      photo.timestamp = Date.now();
+      await chrome.storage.local.set({ lastGlobalPhoto: photo });
+      console.log('Updated lastGlobalPhoto from queue');
+      
+      // Notify all tabs to update (they should reload from storage)
+      chrome.runtime.sendMessage({ action: 'photoUpdated' }).catch(() => {
+        // No tabs listening, that's okay
+      });
+    } else {
+      console.log('Queue empty, tabs will fetch on next open');
+    }
   }
 });
 
 // Set up auto-refresh alarm based on settings
-function setupAutoRefresh(interval) {
+function setupAutoRefresh(settings) {
   chrome.alarms.clear('autoRefresh', () => {
-    if (interval === 'manual') return;
+    const interval = settings.autoRefresh;
+    
+    // Don't set alarm for manual or newtab modes
+    if (interval === 'manual' || interval === 'newtab') return;
     
     let minutes;
     switch (interval) {
@@ -47,6 +81,9 @@ function setupAutoRefresh(interval) {
       case 'daily':
         minutes = 1440; // 24 hours
         break;
+      case 'custom':
+        minutes = settings.customInterval || 60;
+        break;
       default:
         return;
     }
@@ -54,6 +91,8 @@ function setupAutoRefresh(interval) {
     chrome.alarms.create('autoRefresh', {
       periodInMinutes: minutes
     });
+    
+    console.log('Auto-refresh alarm set for', minutes, 'minutes');
   });
 }
 
@@ -61,8 +100,8 @@ function setupAutoRefresh(interval) {
 chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === 'local' && changes.settings) {
     const newSettings = changes.settings.newValue;
-    if (newSettings && newSettings.autoRefresh) {
-      setupAutoRefresh(newSettings.autoRefresh);
+    if (newSettings) {
+      setupAutoRefresh(newSettings);
     }
   }
 });
@@ -70,8 +109,8 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 // Initialize auto-refresh on startup
 chrome.runtime.onStartup.addListener(() => {
   chrome.storage.local.get('settings', (result) => {
-    if (result.settings && result.settings.autoRefresh) {
-      setupAutoRefresh(result.settings.autoRefresh);
+    if (result.settings) {
+      setupAutoRefresh(result.settings);
     }
   });
 });

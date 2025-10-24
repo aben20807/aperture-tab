@@ -11,6 +11,9 @@ const elements = {
   imageQuality: document.getElementById('imageQuality'),
   showInfo: document.getElementById('showInfo'),
   autoRefresh: document.getElementById('autoRefresh'),
+  customInterval: document.getElementById('customInterval'),
+  customIntervalContainer: document.getElementById('customIntervalContainer'),
+  queueSize: document.getElementById('queueSize'),
   searchQuery: document.getElementById('searchQuery'),
   collectionCheckboxes: document.querySelectorAll('.collection-checkbox'),
   historyCount: document.getElementById('historyCount'),
@@ -52,6 +55,8 @@ function getDefaultSettings() {
   return {
     apiKey: '',
     autoRefresh: 'manual',
+    customInterval: 60,
+    queueSize: 5,
     imageQuality: 'full',
     collections: [],
     searchQuery: '',
@@ -65,7 +70,12 @@ function populateForm() {
   elements.imageQuality.value = settings.imageQuality || 'full';
   elements.showInfo.checked = settings.showInfo !== false;
   elements.autoRefresh.value = settings.autoRefresh || 'manual';
+  elements.customInterval.value = settings.customInterval || 60;
+  elements.queueSize.value = settings.queueSize || 10;
   elements.searchQuery.value = settings.searchQuery || '';
+  
+  // Show/hide custom interval input
+  toggleCustomInterval();
   
   // Set collection checkboxes
   if (settings.collections && settings.collections.length > 0) {
@@ -91,10 +101,22 @@ function setupEventListeners() {
   // Toggle API key visibility
   elements.toggleApiKey.addEventListener('click', toggleApiKeyVisibility);
   
+  // Show/hide custom interval input when auto-refresh changes
+  elements.autoRefresh.addEventListener('change', toggleCustomInterval);
+  
   // Auto-save on certain changes
   elements.apiKey.addEventListener('change', () => {
     showStatus('Remember to save your changes', 'info');
   });
+}
+
+// Toggle custom interval visibility
+function toggleCustomInterval() {
+  if (elements.autoRefresh.value === 'custom') {
+    elements.customIntervalContainer.style.display = 'block';
+  } else {
+    elements.customIntervalContainer.style.display = 'none';
+  }
 }
 
 // Toggle API key visibility
@@ -120,6 +142,8 @@ async function saveSettings() {
       imageQuality: elements.imageQuality.value,
       showInfo: elements.showInfo.checked,
       autoRefresh: elements.autoRefresh.value,
+      customInterval: parseInt(elements.customInterval.value) || 60,
+      queueSize: parseInt(elements.queueSize.value) || 10,
       searchQuery: elements.searchQuery.value.trim(),
       collections: Array.from(elements.collectionCheckboxes)
         .filter(cb => cb.checked)
@@ -133,19 +157,44 @@ async function saveSettings() {
       return;
     }
     
+    // Validate custom interval
+    if (newSettings.autoRefresh === 'custom') {
+      if (!newSettings.customInterval || newSettings.customInterval < 1 || newSettings.customInterval > 1440) {
+        showStatus('Please enter a valid custom interval (1-1440 minutes)', 'error');
+        elements.customInterval.focus();
+        return;
+      }
+    }
+    
+    // Validate queue size
+    if (newSettings.queueSize < 3 || newSettings.queueSize > 15) {
+      showStatus('Please enter a valid queue size (3-15)', 'error');
+      elements.queueSize.focus();
+      return;
+    }
+    
     // Save to storage
     await chrome.storage.local.set({ settings: newSettings });
     
     settings = newSettings;
     showStatus('Settings saved successfully! ✓', 'success');
     
-    // Notify background script about settings change (optional, ignore errors)
+    // Notify background script and all tabs about settings change
     chrome.runtime.sendMessage({ action: 'settingsUpdated', settings: newSettings }, () => {
-      // Check for errors but don't throw
       if (chrome.runtime.lastError) {
-        // Silently ignore - this is expected if background script isn't listening
         console.log('Background script not listening (this is OK)');
       }
+    });
+    
+    // Also notify all open tabs
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach(tab => {
+        chrome.tabs.sendMessage(tab.id, { action: 'settingsUpdated', settings: newSettings }, () => {
+          if (chrome.runtime.lastError) {
+            // Ignore errors for tabs that aren't listening
+          }
+        });
+      });
     });
     
   } catch (error) {

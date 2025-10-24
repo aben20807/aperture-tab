@@ -6,6 +6,11 @@ let settings = null;
 let unsplashAPI = null;
 let history = [];
 let favorites = [];
+let refreshTimer = null;
+let imageQueue = [];
+let isRefilling = false; // Prevent multiple refill operations
+let tabId = null; // Unique ID for this tab instance
+let isInitialLoad = true; // Track if this is the first load for this tab
 
 // DOM elements
 const elements = {
@@ -31,38 +36,112 @@ const elements = {
 // Initialize the extension
 async function init() {
   try {
+    console.log('Initializing Aperture Tab...');
+    
+    // Generate unique tab ID for this instance (reuse if exists in sessionStorage)
+    let storedTabData = null;
+    try {
+      storedTabData = sessionStorage.getItem('apertureTabData');
+      if (storedTabData) {
+        storedTabData = JSON.parse(storedTabData);
+        console.log('Found existing tab data in sessionStorage');
+      }
+    } catch (e) {
+      console.log('No existing tab data found');
+    }
+    
+    if (storedTabData && storedTabData.tabId) {
+      // This is a browser refresh - reuse the same tab ID and photo
+      tabId = storedTabData.tabId;
+      isInitialLoad = false; // Not initial load, it's a refresh
+      console.log('Browser refresh detected, reusing Tab ID:', tabId);
+    } else {
+      // This is a new tab
+      tabId = 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      isInitialLoad = true;
+      console.log('New tab, Tab ID:', tabId);
+    }
+    
     // Load settings and data from storage
-    const data = await chrome.storage.local.get(['settings', 'history', 'favorites', 'currentPhoto']);
+    const data = await chrome.storage.local.get(['settings', 'history', 'favorites', 'lastGlobalPhoto', 'imageQueue']);
     settings = data.settings || await getDefaultSettings();
     history = data.history || [];
     favorites = data.favorites || [];
+    imageQueue = data.imageQueue || [];
+    
+    console.log('Settings loaded:', settings);
+    console.log('Image queue size:', imageQueue.length);
     
     // Get API key from settings
     if (!settings.apiKey) {
+      console.log('No API key found in settings');
       showError('Please set your Unsplash API key in settings');
       return;
     }
     
+    console.log('API key found, initializing API...');
+    
     // Initialize Unsplash API
     unsplashAPI = new UnsplashAPI(settings.apiKey);
     
-    // Load current photo or fetch a new one
-    if (data.currentPhoto && !shouldRefresh()) {
-      currentPhoto = data.currentPhoto;
-      displayPhoto(currentPhoto);
-    } else {
-      await loadNewPhoto();
+    // Preload existing queued images to browser cache
+    if (imageQueue.length > 0) {
+      console.log(`Preloading ${imageQueue.length} existing queued images...`);
+      preloadQueuedImages(imageQueue);
     }
+    
+    // Refill queue if needed (in background)
+    if (imageQueue.length < 3) {
+      console.log('Queue low, refilling...');
+      refillQueue().catch(err => console.error('Error refilling queue:', err));
+    }
+    
+    // Decide whether to load a new image or reuse existing
+    if (storedTabData && storedTabData.currentPhoto) {
+      // Browser refresh - reuse the same photo
+      console.log('Browser refresh - reusing previous photo');
+      currentPhoto = storedTabData.currentPhoto;
+      displayPhoto(currentPhoto);
+    } else if (isInitialLoad) {
+      // New tab - behavior depends on mode
+      if (settings.autoRefresh === 'newtab') {
+        // Only in 'newtab' mode do we load a new image on each tab
+        console.log('Newtab mode - loading new photo...');
+        await loadNewPhoto();
+      } else if (data.lastGlobalPhoto) {
+        // For manual and timer modes, always show the current global photo
+        // Timer updates are handled by background.js alarms, not here
+        console.log('Using current global photo...');
+        currentPhoto = data.lastGlobalPhoto;
+        displayPhoto(currentPhoto);
+        saveTabDataToSession(); // Persist to sessionStorage
+      } else {
+        // No photo exists yet, load the first one
+        console.log('No existing photo - loading first photo...');
+        await loadNewPhoto();
+      }
+    }
+    
+    // Save tab data to sessionStorage (persists across browser refresh, cleared when tab closes)
+    saveTabDataToSession();
+    
+    // Mark that initial load is complete
+    isInitialLoad = false;
     
     // Setup event listeners
     setupEventListeners();
     
-    // Listen for messages from background script
+    // DON'T start auto-refresh timer - we only check time on new tab open
+    // startAutoRefreshTimer();
+    
+    // Listen for messages from background script (only for explicit commands)
     chrome.runtime.onMessage.addListener(handleMessage);
+    
+    console.log('Initialization complete');
     
   } catch (error) {
     console.error('Initialization error:', error);
-    showError('Failed to initialize extension');
+    showError('Failed to initialize extension: ' + error.message);
   }
 }
 
@@ -71,18 +150,84 @@ async function getDefaultSettings() {
   const defaultSettings = {
     apiKey: '',
     autoRefresh: 'manual',
-    imageQuality: 'full',
+    customInterval: 60,
+    imageQuality: 'regular', // Use regular for faster loading
     collections: [],
     searchQuery: '',
-    showInfo: true
+    showInfo: true,
+    queueSize: 5 // Reduced from 10 to avoid rate limits
   };
   await chrome.storage.local.set({ settings: defaultSettings });
   return defaultSettings;
 }
 
-// Check if we should refresh based on auto-refresh settings
+// Save tab data to sessionStorage (persists across browser refresh)
+function saveTabDataToSession() {
+  if (!currentPhoto) return;
+  
+  const tabData = {
+    tabId: tabId,
+    currentPhoto: currentPhoto
+  };
+  
+  try {
+    sessionStorage.setItem('apertureTabData', JSON.stringify(tabData));
+    console.log('Saved tab data to sessionStorage');
+  } catch (e) {
+    console.error('Error saving to sessionStorage:', e);
+  }
+}
+
+// Check if we should refresh based on auto-refresh settings (only when opening NEW tab)
+function shouldRefreshOnNewTab(savedPhoto) {
+  // If newtab mode, always load new image
+  if (settings.autoRefresh === 'newtab') {
+    return true;
+  }
+  
+  // If manual mode, never auto-refresh
+  if (settings.autoRefresh === 'manual') {
+    return false;
+  }
+  
+  // If no saved photo exists, load new one
+  if (!savedPhoto) {
+    return true;
+  }
+  
+  // Check timestamp for timer-based modes
+  const lastUpdate = savedPhoto.timestamp || 0;
+  const now = Date.now();
+  const diff = now - lastUpdate;
+  
+  let intervalMs;
+  switch (settings.autoRefresh) {
+    case '30min':
+      intervalMs = 30 * 60 * 1000;
+      break;
+    case '1hour':
+      intervalMs = 60 * 60 * 1000;
+      break;
+    case 'daily':
+      intervalMs = 24 * 60 * 60 * 1000;
+      break;
+    case 'custom':
+      const customMinutes = settings.customInterval || 60;
+      intervalMs = customMinutes * 60 * 1000;
+      break;
+    default:
+      return false;
+  }
+  
+  const shouldRefresh = diff >= intervalMs;
+  console.log(`Timer check: last update ${new Date(lastUpdate).toLocaleTimeString()}, now ${new Date(now).toLocaleTimeString()}, diff ${Math.floor(diff/1000)}s, interval ${Math.floor(intervalMs/1000)}s, refresh: ${shouldRefresh}`);
+  
+  return shouldRefresh;
+}
+
+// Check if we should refresh based on auto-refresh settings (for background timer)
 function shouldRefresh() {
-  if (!currentPhoto || settings.autoRefresh === 'manual') return false;
+  if (!currentPhoto || settings.autoRefresh === 'manual' || settings.autoRefresh === 'newtab') return false;
   
   const lastUpdate = currentPhoto.timestamp || 0;
   const now = Date.now();
@@ -95,29 +240,218 @@ function shouldRefresh() {
       return diff > 60 * 60 * 1000;
     case 'daily':
       return diff > 24 * 60 * 60 * 1000;
+    case 'custom':
+      const customMinutes = settings.customInterval || 60;
+      return diff > customMinutes * 60 * 1000;
     default:
       return false;
   }
 }
 
-// Load a new random photo
-async function loadNewPhoto() {
-  showLoading(true);
-  hideError();
+// Start auto-refresh timer
+function startAutoRefreshTimer() {
+  // Clear any existing timer
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+  
+  // Don't start timer for manual or newtab modes
+  if (settings.autoRefresh === 'manual' || settings.autoRefresh === 'newtab') {
+    return;
+  }
+  
+  // Calculate check interval (check every minute)
+  const checkInterval = 60 * 1000; // 1 minute
+  
+  refreshTimer = setInterval(() => {
+    if (shouldRefresh()) {
+      console.log('Auto-refresh triggered');
+      loadNewPhoto();
+    }
+  }, checkInterval);
+  
+  console.log('Auto-refresh timer started for mode:', settings.autoRefresh);
+}
+
+// Refill the image queue
+async function refillQueue() {
+  if (isRefilling) {
+    console.log('Already refilling queue, skipping...');
+    return;
+  }
+  
+  isRefilling = true;
   
   try {
-    const options = {};
+    const queueSize = settings.queueSize || 10;
+    const needed = queueSize - imageQueue.length;
     
+    if (needed <= 0) {
+      console.log('Queue is full, no refill needed');
+      isRefilling = false;
+      return;
+    }
+    
+    console.log(`Fetching ${needed} images to refill queue...`);
+    
+    const options = {};
     if (settings.collections && settings.collections.length > 0) {
       options.collections = settings.collections;
     }
-    
     if (settings.searchQuery) {
       options.query = settings.searchQuery;
     }
     
-    const photo = await unsplashAPI.getRandomPhoto(options);
-    currentPhoto = unsplashAPI.formatPhotoData(photo);
+    // Fetch more photos than needed to account for filtering
+    const fetchCount = Math.min(needed * 3, 30); // Fetch 3x to ensure we have enough after filtering
+    const photos = await unsplashAPI.getMultipleRandomPhotos(fetchCount, options);
+    console.log(`Fetched ${photos.length} photos`);
+    
+    const formattedPhotos = photos.map(photo => unsplashAPI.formatPhotoData(photo));
+    
+    // Filter out photos without EXIF info (must have model or make)
+    const photosWithExif = formattedPhotos.filter(photo => {
+      const hasExif = photo.exif && Object.keys(photo.exif).length > 0;
+      const hasCameraInfo = photo.exif && (photo.exif.model || photo.exif.make);
+      if (!hasExif) {
+        console.log(`Filtered out photo ${photo.id} - no EXIF data`);
+      } else if (!hasCameraInfo) {
+        console.log(`Filtered out photo ${photo.id} - no camera model/make`);
+      }
+      return hasExif && hasCameraInfo;
+    });
+    
+    console.log(`After filtering: ${photosWithExif.length} photos with camera EXIF data`);
+    
+    // Take only what we need
+    const photosToAdd = photosWithExif.slice(0, needed);
+    imageQueue.push(...photosToAdd);
+    
+    // Save queue to storage
+    await chrome.storage.local.set({ imageQueue });
+    console.log(`Queue refilled. New size: ${imageQueue.length}`);
+    
+    // Preload images in background to cache them
+    console.log('Preloading images to browser cache...');
+    preloadQueuedImages(photosToAdd);
+    
+  } catch (error) {
+    console.error('Error refilling queue:', error);
+  } finally {
+    isRefilling = false;
+  }
+}
+
+// Preload images to browser cache
+function preloadQueuedImages(photos) {
+  photos.forEach((photo, index) => {
+    const imageUrl = photo.urls[settings.imageQuality] || photo.urls.full;
+    const img = new Image();
+    
+    img.onload = () => {
+      console.log(`Preloaded image ${index + 1}/${photos.length}`);
+    };
+    
+    img.onerror = () => {
+      console.warn(`Failed to preload image ${index + 1}/${photos.length}`);
+    };
+    
+    // Start preloading
+    img.src = imageUrl;
+  });
+}
+
+// Get next photo from queue
+function getNextFromQueue() {
+  if (imageQueue.length === 0) {
+    console.log('Queue is empty');
+    return null;
+  }
+  
+  const photo = imageQueue.shift();
+  console.log(`Photo taken from queue. Remaining: ${imageQueue.length}`);
+  
+  // Save updated queue
+  chrome.storage.local.set({ imageQueue });
+  
+  // Refill queue if running low (async, don't wait)
+  if (imageQueue.length < 3) {
+    console.log('Queue running low, refilling in background...');
+    refillQueue().catch(err => console.error('Background refill failed:', err));
+  }
+  
+  return photo;
+}
+
+// Load a new random photo
+async function loadNewPhoto() {
+  console.log('loadNewPhoto called');
+  console.log('Current photo ID before:', currentPhoto?.id);
+  showLoading(true);
+  hideError();
+  
+  try {
+    // Try to get photo from queue first
+    let photo = getNextFromQueue();
+    
+    if (photo) {
+      console.log('Using photo from queue, ID:', photo.id);
+      currentPhoto = photo;
+    } else {
+      console.log('Queue empty, fetching directly from API...');
+      
+      const options = {};
+      
+      if (settings.collections && settings.collections.length > 0) {
+        options.collections = settings.collections;
+        console.log('Using collections:', settings.collections);
+      }
+      
+      if (settings.searchQuery) {
+        options.query = settings.searchQuery;
+        console.log('Using search query:', settings.searchQuery);
+      }
+      
+      console.log('Fetching photo from Unsplash API...');
+      
+      // Keep fetching until we get one with EXIF data
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      while (attempts < maxAttempts) {
+        const rawPhoto = await unsplashAPI.getRandomPhoto(options);
+        console.log('Photo received:', rawPhoto);
+        
+        const formattedPhoto = unsplashAPI.formatPhotoData(rawPhoto);
+        
+        // Check if it has EXIF data with camera model or make
+        const hasExif = formattedPhoto.exif && Object.keys(formattedPhoto.exif).length > 0;
+        const hasCameraInfo = formattedPhoto.exif && (formattedPhoto.exif.model || formattedPhoto.exif.make);
+        
+        if (hasExif && hasCameraInfo) {
+          currentPhoto = formattedPhoto;
+          console.log('Formatted photo data with camera EXIF:', currentPhoto);
+          break;
+        } else {
+          if (!hasExif) {
+            console.log(`Photo ${formattedPhoto.id} has no EXIF data, fetching another... (attempt ${attempts + 1}/${maxAttempts})`);
+          } else {
+            console.log(`Photo ${formattedPhoto.id} has no camera model/make, fetching another... (attempt ${attempts + 1}/${maxAttempts})`);
+          }
+          attempts++;
+        }
+      }
+      
+      if (attempts >= maxAttempts) {
+        throw new Error('Could not find a photo with camera EXIF data after multiple attempts');
+      }
+      
+      // Start refilling queue in background
+      refillQueue().catch(err => console.error('Error refilling queue:', err));
+    }
+    
+    console.log('New photo ID:', currentPhoto.id);
     
     // Save to history
     await addToHistory(currentPhoto);
@@ -125,8 +459,11 @@ async function loadNewPhoto() {
     // Display the photo
     displayPhoto(currentPhoto);
     
-    // Save current photo
-    await chrome.storage.local.set({ currentPhoto });
+    // Save tab data to sessionStorage (persists across browser refresh)
+    saveTabDataToSession();
+    
+    // Save as last global photo (for new tabs to reference)
+    await chrome.storage.local.set({ lastGlobalPhoto: currentPhoto });
     
     showLoading(false);
     
@@ -139,26 +476,47 @@ async function loadNewPhoto() {
 
 // Display a photo
 function displayPhoto(photo) {
-  if (!photo) return;
+  console.log('displayPhoto called with:', photo);
+  console.log('Photo ID:', photo?.id);
+  if (!photo) {
+    console.error('No photo provided to displayPhoto');
+    return;
+  }
   
   const imageUrl = photo.urls[settings.imageQuality] || photo.urls.full;
+  console.log('Image URL:', imageUrl);
+  console.log('Image quality setting:', settings.imageQuality);
+  console.log('Current img src:', elements.mainImage.src);
   
-  // Preload image
-  const img = new Image();
-  img.onload = () => {
-    elements.mainImage.src = imageUrl;
+  // Ensure image element is visible
+  elements.mainImage.style.display = 'block';
+  
+  // Add a small fade-out effect
+  elements.mainImage.style.opacity = '0.3';
+  
+  // Remove old event handlers to prevent conflicts
+  elements.mainImage.onload = null;
+  elements.mainImage.onerror = null;
+  
+  // Add new event handlers
+  elements.mainImage.onload = () => {
+    console.log('Main image element loaded successfully');
+    elements.mainImage.style.opacity = '1';
     elements.mainImage.classList.add('loaded');
-    elements.mainImage.style.opacity = '0';
-    setTimeout(() => {
-      elements.mainImage.style.opacity = '1';
-    }, 50);
   };
-  img.onerror = () => {
-    // If image fails to load, hide it completely
-    elements.mainImage.style.display = 'none';
-    showError('Failed to load image');
+  
+  elements.mainImage.onerror = (e) => {
+    console.error('Main image element failed to load', e);
+    elements.mainImage.style.opacity = '1';
+    // Don't show error for rate limit - just keep current image
+    console.warn('Image load failed - possibly rate limited. Keeping current image.');
   };
-  img.src = imageUrl;
+  
+  // Don't use cache-busting - let browser cache work properly
+  // The image URL from Unsplash already has unique parameters
+  console.log('Setting new src to:', imageUrl);
+  elements.mainImage.src = imageUrl;
+  console.log('Image src after setting:', elements.mainImage.src);
   
   // Update image info
   if (settings.showInfo) {
@@ -336,8 +694,9 @@ function renderHistory(filter = 'all') {
     card.addEventListener('click', () => {
       currentPhoto = photo;
       displayPhoto(photo);
+      saveTabDataToSession(); // Persist to sessionStorage for browser refresh
       elements.historyPanel.classList.add('hidden');
-      chrome.storage.local.set({ currentPhoto });
+      // Don't update global storage - keep this tab's image independent
     });
     
     elements.historyGrid.appendChild(card);
@@ -414,13 +773,20 @@ function setupEventListeners() {
 
 // Handle messages from background script
 function handleMessage(message, sender, sendResponse) {
-  if (message.action === 'autoRefresh' || message.action === 'refresh-image') {
+  // Only handle explicit user actions, not automatic updates
+  if (message.action === 'refresh-image') {
     loadNewPhoto();
   } else if (message.action === 'toggle-history') {
     toggleHistory();
   } else if (message.action === 'toggle-favorite') {
     toggleFavorite();
+  } else if (message.action === 'photoUpdated') {
+    // Background script updated the global photo (timer expired)
+    // We don't auto-update this tab's image - it stays as is
+    // Only new tabs or refresh button will show the new image
+    console.log('Background updated global photo (timer expired)');
   }
+  // Ignore other messages - don't let other tabs change this tab's image
 }
 
 // Show/hide loading indicator
@@ -430,6 +796,8 @@ function showLoading(show) {
 
 // Show error message
 function showError(message) {
+  console.log('Error:', message);
+  showLoading(false); // Hide loading indicator
   elements.errorMessage.querySelector('p').textContent = message;
   elements.errorMessage.classList.remove('hidden');
 }
