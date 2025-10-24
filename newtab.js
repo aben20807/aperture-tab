@@ -75,7 +75,54 @@ async function init() {
     // Get API key from settings
     if (!settings.apiKey) {
       console.log('No API key found in settings');
-      showError('Please set your Unsplash API key in settings');
+      
+      // Use default demo image when no API key is set
+      const demoPhoto = {
+        id: 'xYC8Omwqe5g',
+        urls: {
+          raw: 'https://images.unsplash.com/photo-1753601810919-36fc0b7ebbf8?ixlib=rb-4.1.0',
+          full: 'https://images.unsplash.com/photo-1753601810919-36fc0b7ebbf8?ixlib=rb-4.1.0&q=85',
+          regular: 'https://images.unsplash.com/photo-1753601810919-36fc0b7ebbf8?ixlib=rb-4.1.0&q=80&w=1080',
+          small: 'https://images.unsplash.com/photo-1753601810919-36fc0b7ebbf8?ixlib=rb-4.1.0&q=80&w=400',
+          thumb: 'https://images.unsplash.com/photo-1753601810919-36fc0b7ebbf8?ixlib=rb-4.1.0&q=80&w=200'
+        },
+        links: {
+          html: 'https://unsplash.com/photos/a-white-puffball-mushroom-rests-on-the-ground-xYC8Omwqe5g',
+          download: 'https://unsplash.com/photos/xYC8Omwqe5g/download'
+        },
+        user: {
+          name: 'Po-Hsuan Huang',
+          username: 'aben20807',
+          profile: 'https://unsplash.com/@aben20807'
+        },
+        description: 'A white puffball mushroom rests on the ground',
+        location: {
+          name: 'National Cheng Kung University, Tainan City, Taiwan'
+        },
+        exif: {
+          make: 'NIKON CORPORATION',
+          model: 'NIKON Z 6_2',
+          exposure_time: '1/125',
+          aperture: '7.1',
+          focal_length: '70.0mm',
+          iso: '1250'
+        },
+        timestamp: Date.now()
+      };
+      
+      currentPhoto = demoPhoto;
+      displayPhoto(demoPhoto);
+      saveTabDataToSession();
+      await chrome.storage.local.set({ lastGlobalPhoto: demoPhoto });
+      
+      // Show message about setting API key
+      const messageEl = document.createElement('div');
+      messageEl.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 15px 25px; border-radius: 8px; z-index: 10000; font-size: 14px;';
+      messageEl.innerHTML = '⚠️ Please set your Unsplash API key in settings to see random photos';
+      document.body.appendChild(messageEl);
+      setTimeout(() => messageEl.remove(), 5000);
+      
+      setupEventListeners();
       return;
     }
     
