@@ -165,6 +165,9 @@ async function init() {
       console.log('Browser refresh - reusing previous photo');
       currentPhoto = storedTabData.currentPhoto;
       displayPhoto(currentPhoto);
+      
+      // Add to history (in case it wasn't added before)
+      await addToHistory(currentPhoto);
     } else if (isInitialLoad) {
       // New tab - behavior depends on mode
       if (settings.autoRefresh === 'newtab') {
@@ -178,6 +181,9 @@ async function init() {
         currentPhoto = data.lastGlobalPhoto;
         displayPhoto(currentPhoto);
         saveTabDataToSession(); // Persist to sessionStorage
+        
+        // Add to history so user can see it in history panel
+        await addToHistory(currentPhoto);
       } else {
         // No photo exists yet, load the first one
         console.log('No existing photo - loading first photo...');
