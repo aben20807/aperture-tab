@@ -1,18 +1,25 @@
 // Aperture Tab - Main Script
+// Displays random Unsplash photos with EXIF metadata on new tab page
 
-// State management
-let currentPhoto = null;
-let settings = null;
-let unsplashAPI = null;
-let history = [];
-let favorites = [];
-let refreshTimer = null;
-let imageQueue = [];
-let isRefilling = false; // Prevent multiple refill operations
-let tabId = null; // Unique ID for this tab instance
-let isInitialLoad = true; // Track if this is the first load for this tab
+// ============================================================================
+// STATE MANAGEMENT
+// ============================================================================
 
-// DOM elements
+let currentPhoto = null;        // Currently displayed photo in this tab
+let settings = null;            // User settings from chrome.storage
+let unsplashAPI = null;         // Unsplash API wrapper instance
+let history = [];               // History of viewed photos
+let favorites = [];             // Favorited photos
+let refreshTimer = null;        // Timer for auto-refresh (deprecated, using background alarms)
+let imageQueue = [];            // Prefetched images queue (shared across tabs)
+let isRefilling = false;        // Prevent concurrent queue refill operations
+let tabId = null;               // Unique identifier for this tab instance
+let isInitialLoad = true;       // Whether this is the first load for this tab
+
+// ============================================================================
+// DOM ELEMENT REFERENCES
+// ============================================================================
+
 const elements = {
   mainImage: document.getElementById('mainImage'),
   imageContainer: document.getElementById('imageContainer'),
@@ -33,12 +40,20 @@ const elements = {
   historyGrid: document.getElementById('historyGrid')
 };
 
-// Initialize the extension
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+/**
+ * Initialize the extension
+ * - Handles both new tab opens and browser refreshes (F5)
+ * - Loads settings and decides which photo to display
+ */
 async function init() {
   try {
     console.log('Initializing Aperture Tab...');
     
-    // Generate unique tab ID for this instance (reuse if exists in sessionStorage)
+    // Check sessionStorage to detect browser refresh vs new tab
     let storedTabData = null;
     try {
       storedTabData = sessionStorage.getItem('apertureTabData');
@@ -50,19 +65,20 @@ async function init() {
       console.log('No existing tab data found');
     }
     
+    // Determine if this is a browser refresh (F5) or a new tab
     if (storedTabData && storedTabData.tabId) {
-      // This is a browser refresh - reuse the same tab ID and photo
+      // Browser refresh detected - reuse existing tab ID and photo
       tabId = storedTabData.tabId;
-      isInitialLoad = false; // Not initial load, it's a refresh
+      isInitialLoad = false;
       console.log('Browser refresh detected, reusing Tab ID:', tabId);
     } else {
-      // This is a new tab
+      // New tab - generate unique tab ID
       tabId = 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
       isInitialLoad = true;
       console.log('New tab, Tab ID:', tabId);
     }
     
-    // Load settings and data from storage
+    // Load settings and cached data from chrome.storage
     const data = await chrome.storage.local.get(['settings', 'history', 'favorites', 'lastGlobalPhoto', 'imageQueue']);
     settings = data.settings || await getDefaultSettings();
     history = data.history || [];
@@ -72,11 +88,11 @@ async function init() {
     console.log('Settings loaded:', settings);
     console.log('Image queue size:', imageQueue.length);
     
-    // Get API key from settings
+    // Handle missing API key - show demo photo with instructions
     if (!settings.apiKey) {
       console.log('No API key found in settings');
       
-      // Use default demo image when no API key is set
+      // Demo photo: White puffball mushroom by Po-Hsuan Huang
       const demoPhoto = {
         id: 'xYC8Omwqe5g',
         urls: {

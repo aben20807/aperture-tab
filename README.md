@@ -1,105 +1,152 @@
 # Aperture Tab
 
-A browser extension that replaces your new tab page with random high-quality images from Unsplash.
+A browser extension that replaces your new tab page with beautiful, high-quality photos from Unsplash, featuring camera EXIF metadata and photographer attribution.
 
 ## Features
 
-- Random Unsplash images on every new tab
-- Unlimited local history storage
+- Random Unsplash photos with camera EXIF metadata (aperture, shutter speed, ISO, focal length)
+- Configurable auto-refresh intervals with background timer support
+- Image queue system - prefetches 3-15 images for instant loading
+- EXIF filtering - only shows photos with complete camera metadata
+- Unlimited history with thumbnail grid view
 - Favorites system
-- Auto-refresh intervals (30min, 1hr, daily)
-- Collection filtering (nature, architecture, minimal, etc.)
-- Keyboard shortcuts
-- Camera gear information display
-- Landscape orientation only
+- Collection filtering and search functionality
+- Keyboard shortcuts for quick access
+- Privacy-first - all data stored locally
 
 ## Installation
 
 ### Get Unsplash API Key
 
-1. Go to [Unsplash Developers](https://unsplash.com/oauth/applications)
-2. Create a new application (Demo app is fine)
-3. Copy your Access Key
+1. Visit [Unsplash Developers](https://unsplash.com/oauth/applications)
+2. Click "New Application" and accept the terms
+3. Fill in application details (Demo app is fine)
+4. Copy your **Access Key**
 
 ### Install Extension
 
 1. Clone this repository:
-
    ```bash
    git clone https://github.com/aben20807/aperture-tab.git
    ```
 
-2. Open Chrome and navigate to `chrome://extensions/` (or `brave://extensions/` for Brave)
-3. Enable "Developer mode" (toggle in top right)
-4. Click "Load unpacked" and select the extension folder
-5. Click the extension icon and enter your Unsplash API key
-6. Open a new tab to start using Aperture Tab
+2. Open Chrome and navigate to `chrome://extensions/`
+3. Enable **Developer mode** (toggle in top right)
+4. Click **Load unpacked** and select the `aperture-tab` folder
+5. Open a new tab, click settings, and paste your API key
+
+## Settings
+
+### Auto Refresh Modes
+
+- **Manual** - Images only change when you click the refresh button
+- **New image on each tab** - Every new tab shows a different photo
+- **Timer-based (30min/1hour/daily/custom)** - Background timer updates the global photo at set intervals. All tabs opened during that interval show the same photo.
+
+### Image Queue
+
+- Queue Size: 3-15 images (default: 5)
+- Prefetches and preloads images to browser cache
+- Auto-refills when queue drops below 3 images
+- Filters out photos without EXIF camera data
+
+### Content Filters
+
+- Search by keywords
+- Filter by curated collections (Nature, Architecture, Minimal, Ocean, Forest, Urban, Space, Animals)
+
+### Display Options
+
+- Image Quality: Regular (1080p), Full (original), Raw (highest quality)
+- Toggle photographer name and EXIF metadata display
 
 ## Keyboard Shortcuts
 
 - `Space` - Refresh image
 - `Ctrl+Shift+H` - Toggle history panel
 - `Ctrl+Shift+F` - Toggle favorite
-- `Ctrl+Shift+R` - Refresh image
+- `Ctrl+Shift+R` - Refresh image (alternative)
 - `Esc` - Close history panel
 
-## Settings
+## Architecture
 
-### Display Options
+### Key Components
 
-- Image quality (Regular, Full, Raw)
-- Show/hide photographer information
+- **newtab.js** - Main application logic, photo loading, queue management
+- **background.js** - Service worker handling timer alarms and global state
+- **settings.js/html** - Settings interface and preferences management
+- **lib/unsplash-api.js** - Unsplash API wrapper with EXIF formatting
+- **manifest.json** - Chrome extension configuration (Manifest V3)
 
-### Auto Refresh
+### How It Works
 
-- Manual (default)
-- Every 30 minutes
-- Every hour
-- Daily
+1. Each tab has a unique `tabId` and maintains its own `currentPhoto`
+2. `sessionStorage` detects F5 refresh vs new tab
+3. Background service worker manages alarms and updates `lastGlobalPhoto`
+4. Image queue prefetches and caches images, filtered for EXIF metadata
+5. EXIF filtering fetches 3x needed images to ensure quality photos
 
-### Filters
+### Storage
 
-- Search by keywords
-- Filter by collections (nature, architecture, ocean, forest, urban, space, animals)
-
-## Privacy
-
-All data is stored locally on your device:
-
-- API key is stored securely by Chrome
-- No external servers except Unsplash API
-- No tracking or analytics
-- No accounts or sign-ups required
-- Open source code for transparency
+- **chrome.storage.local** - Settings, history, favorites, lastGlobalPhoto, imageQueue
+- **sessionStorage** - Per-tab state (persists across F5, cleared when tab closes)
+- **Browser cache** - Preloaded queue images for instant display
 
 ## Development
 
-Built with:
+### Tech Stack
 
 - Chrome Manifest V3
+- Vanilla JavaScript (ES6+)
 - Unsplash API
-- Vanilla JavaScript
 - Chrome Storage API
+- Chrome Alarms API
 
 ## Troubleshooting
 
 **Images not loading?**
 
 - Verify API key in settings
-- Check internet connection
-- Check API rate limits (50 requests/hour for demo apps)
+- Check browser console for errors (F12)
+- Unsplash demo apps limited to 50 requests/hour
+
+**Same image on all tabs?**
+
+- Expected behavior for timer modes (manual, 30min, 1hour, daily, custom)
+- Use "New image on each tab" mode for different images per tab
 
 **Extension not working?**
 
-- Verify extension is enabled at `chrome://extensions/`
+- Check `chrome://extensions/` - ensure extension is enabled
 - Try reloading the extension
+
+**Queue not refilling?**
+
+- Might be hitting Unsplash API rate limits
+- Reduce queue size in settings (default: 5)
+- Wait for rate limit reset (1 hour)
+
+## Permissions
+
+This extension requires the following Chrome permissions:
+
+- **storage** - Store settings, history, favorites, and image queue locally on your device
+- **tabs** - Enable keyboard shortcuts and tab-specific features
+- **alarms** - Run background timers for auto-refresh intervals (30min, 1hour, daily, custom)
+
+All data remains on your device. No information is sent to external servers except API requests to Unsplash.
 
 ## License
 
-This project is licensed under the Apache 2.0 License - see the [LICENSE](https://github.com/aben20807/aperture-tab/blob/master/LICENSE) file for details.
+Apache 2.0 License - see [LICENSE](LICENSE) file for details.
+
 Photos provided by Unsplash photographers under the [Unsplash License](https://unsplash.com/license).
 
 ## Credits
 
 - [Unsplash](https://unsplash.com) for the amazing photos
 - [Unsplash API](https://unsplash.com/developers) for the service
+
+---
+
+**Note**: This extension requires a free Unsplash API key. Your API key is stored locally and never transmitted to any server except Unsplash's official API.
