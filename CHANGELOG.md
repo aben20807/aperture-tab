@@ -2,6 +2,32 @@
 
 All notable changes to Aperture Tab will be documented in this file.
 
+## [1.2.0] - 2025-10-25
+
+### Added
+- **Configurable Application Name**: Optional application name field in settings for UTM attribution
+- **Dynamic UTM Parameters**: UTM parameters added on-the-fly based on user's application name
+- **Auto Version Display**: Settings page now displays version automatically from manifest.json
+- **Buy Me a Coffee Link**: Support link added to settings page
+
+### Changed
+- **UTM Attribution**: Replaced hardcoded "aperture_tab" with user-configurable application name
+- **UTM Behavior**: If no application name provided, UTM parameters are omitted from Unsplash links
+- **Link Attribution**: UTM parameters now added dynamically when displaying photos, even for cached images
+
+### Fixed
+- **DEBUG Flag Conflicts**: Resolved duplicate DEBUG constant declarations across files
+- **Recursive Logging Bug**: Fixed log functions calling themselves instead of console methods
+- **Logger Naming**: Each file now has unique logger (log, unsplashLog, bgLog, settingsLog)
+- **UTM Parameter Application**: Fixed issue where UTM parameters weren't appearing in links after setting app name
+
+### Technical
+- Each JavaScript file now has its own namespaced logger
+- `lib/unsplash-api.js` no longer declares DEBUG (uses global from newtab.js)
+- `formatPhotoData()` accepts optional appName parameter
+- UTM parameters encoded with `encodeURIComponent()` for proper URL encoding
+- Version dynamically loaded using `chrome.runtime.getManifest()`
+
 ## [1.1.0] - 2025-10-25
 
 ### Added
