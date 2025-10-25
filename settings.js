@@ -17,6 +17,7 @@ let favorites = [];
 // DOM elements
 const elements = {
   apiKey: document.getElementById('apiKey'),
+  appName: document.getElementById('appName'),
   toggleApiKey: document.getElementById('toggleApiKey'),
   imageQuality: document.getElementById('imageQuality'),
   showInfo: document.getElementById('showInfo'),
@@ -38,6 +39,10 @@ const elements = {
 // Initialize settings page
 async function init() {
   try {
+    // Load version from manifest
+    const manifest = chrome.runtime.getManifest();
+    document.getElementById('version').textContent = `v${manifest.version}`;
+    
     // Load current settings
     const data = await chrome.storage.local.get(['settings', 'history', 'favorites']);
     
@@ -64,6 +69,7 @@ async function init() {
 function getDefaultSettings() {
   return {
     apiKey: '',
+    appName: '', // Optional application name for UTM parameters
     autoRefresh: 'manual',
     customInterval: 60,
     queueSize: 5,
@@ -77,6 +83,7 @@ function getDefaultSettings() {
 // Populate form with current settings
 function populateForm() {
   elements.apiKey.value = settings.apiKey || '';
+  elements.appName.value = settings.appName || '';
   elements.imageQuality.value = settings.imageQuality || 'full';
   elements.showInfo.checked = settings.showInfo !== false;
   elements.autoRefresh.value = settings.autoRefresh || 'manual';
@@ -149,6 +156,7 @@ async function saveSettings() {
     // Gather form data
     const newSettings = {
       apiKey: elements.apiKey.value.trim(),
+      appName: elements.appName.value.trim(),
       imageQuality: elements.imageQuality.value,
       showInfo: elements.showInfo.checked,
       autoRefresh: elements.autoRefresh.value,

@@ -21,7 +21,7 @@ A browser extension that replaces your new tab page with beautiful, high-quality
 1. Visit [Unsplash Developers](https://unsplash.com/oauth/applications)
 2. Click "New Application" and accept the terms
 3. Fill in application details (Demo app is fine)
-4. Copy your **Access Key**
+4. Copy your **Access Key** and note your **Application Name**
 
 ### Install Extension
 
@@ -33,7 +33,9 @@ A browser extension that replaces your new tab page with beautiful, high-quality
 2. Open Chrome and navigate to `chrome://extensions/`
 3. Enable **Developer mode** (toggle in top right)
 4. Click **Load unpacked** and select the `aperture-tab` folder
-5. Open a new tab, click settings, and paste your API key
+5. Open a new tab, click settings, and enter:
+   - Your Unsplash **API key**
+   - Your **Application Name** (optional, for Unsplash attribution via UTM parameters)
 
 ## Settings
 

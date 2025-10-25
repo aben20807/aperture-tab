@@ -116,13 +116,13 @@ async function init() {
           thumb: 'https://images.unsplash.com/photo-1753601810919-36fc0b7ebbf8?ixlib=rb-4.1.0&q=80&w=200'
         },
         links: {
-          html: 'https://unsplash.com/photos/a-white-puffball-mushroom-rests-on-the-ground-xYC8Omwqe5g?utm_source=aperture_tab&utm_medium=referral',
+          html: 'https://unsplash.com/photos/a-white-puffball-mushroom-rests-on-the-ground-xYC8Omwqe5g',
           download: 'https://unsplash.com/photos/xYC8Omwqe5g/download'
         },
         user: {
           name: 'Po-Hsuan Huang',
           username: 'aben20807',
-          profile: 'https://unsplash.com/@aben20807?utm_source=aperture_tab&utm_medium=referral'
+          profile: 'https://unsplash.com/@aben20807'
         },
         description: 'A white puffball mushroom rests on the ground',
         location: {
@@ -231,6 +231,7 @@ async function init() {
 async function getDefaultSettings() {
   const defaultSettings = {
     apiKey: '',
+    appName: '', // Optional application name for UTM parameters
     autoRefresh: 'manual',
     customInterval: 60,
     imageQuality: 'regular', // Use regular for faster loading
@@ -390,7 +391,7 @@ async function refillQueue() {
     const photos = await unsplashAPI.getMultipleRandomPhotos(fetchCount, options);
     log.info(`Fetched ${photos.length} photos`);
     
-    const formattedPhotos = photos.map(photo => unsplashAPI.formatPhotoData(photo));
+    const formattedPhotos = photos.map(photo => unsplashAPI.formatPhotoData(photo, settings.appName));
     
     // Filter out photos without EXIF info (must have model or make)
     const photosWithExif = formattedPhotos.filter(photo => {
@@ -505,7 +506,7 @@ async function loadNewPhoto() {
         const rawPhoto = await unsplashAPI.getRandomPhoto(options);
         log.info('Photo received:', rawPhoto);
         
-        const formattedPhoto = unsplashAPI.formatPhotoData(rawPhoto);
+        const formattedPhoto = unsplashAPI.formatPhotoData(rawPhoto, settings.appName);
         
         // Check if it has EXIF data with camera model or make
         const hasExif = formattedPhoto.exif && Object.keys(formattedPhoto.exif).length > 0;
@@ -604,11 +605,13 @@ function displayPhoto(photo) {
   if (settings.showInfo) {
     elements.photographerLink.textContent = photo.user.name;
     
-    // Ensure photographer profile link has UTM parameters
+    // Add UTM parameters to profile link if appName is configured
     let profileUrl = photo.user.profile;
-    if (!profileUrl.includes('utm_source=aperture_tab')) {
-      profileUrl += (profileUrl.includes('?') ? '&' : '?') + 'utm_source=aperture_tab&utm_medium=referral';
-      log.warn('Added missing UTM parameters to photographer profile URL');
+    if (settings.appName && settings.appName.trim()) {
+      const utmParams = `utm_source=${encodeURIComponent(settings.appName)}&utm_medium=referral`;
+      // Remove any existing UTM parameters first
+      profileUrl = profileUrl.split('?')[0];
+      profileUrl += `?${utmParams}`;
     }
     elements.photographerLink.href = profileUrl;
     
@@ -732,11 +735,14 @@ function updateFavoriteButton() {
 function viewOnUnsplash() {
   if (!currentPhoto) return;
   
-  // Ensure URL has UTM parameters for Unsplash attribution
   let unsplashUrl = currentPhoto.links.html;
-  if (!unsplashUrl.includes('utm_source=aperture_tab')) {
-    unsplashUrl += (unsplashUrl.includes('?') ? '&' : '?') + 'utm_source=aperture_tab&utm_medium=referral';
-    log.warn('Added missing UTM parameters to Unsplash URL');
+  
+  // Add UTM parameters if appName is configured
+  if (settings.appName && settings.appName.trim()) {
+    const utmParams = `utm_source=${encodeURIComponent(settings.appName)}&utm_medium=referral`;
+    // Remove any existing UTM parameters first
+    unsplashUrl = unsplashUrl.split('?')[0];
+    unsplashUrl += `?${utmParams}`;
   }
   
   log.info('Opening Unsplash URL:', unsplashUrl);
