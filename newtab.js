@@ -103,13 +103,13 @@ async function init() {
           thumb: 'https://images.unsplash.com/photo-1753601810919-36fc0b7ebbf8?ixlib=rb-4.1.0&q=80&w=200'
         },
         links: {
-          html: 'https://unsplash.com/photos/a-white-puffball-mushroom-rests-on-the-ground-xYC8Omwqe5g',
+          html: 'https://unsplash.com/photos/a-white-puffball-mushroom-rests-on-the-ground-xYC8Omwqe5g?utm_source=aperture_tab&utm_medium=referral',
           download: 'https://unsplash.com/photos/xYC8Omwqe5g/download'
         },
         user: {
           name: 'Po-Hsuan Huang',
           username: 'aben20807',
-          profile: 'https://unsplash.com/@aben20807'
+          profile: 'https://unsplash.com/@aben20807?utm_source=aperture_tab&utm_medium=referral'
         },
         description: 'A white puffball mushroom rests on the ground',
         location: {
