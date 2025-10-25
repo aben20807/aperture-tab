@@ -1,5 +1,15 @@
 // Aperture Tab - Settings Script
 
+// Note: DEBUG flag is defined in newtab.js, but settings.js loads independently
+const DEBUG = false; // Set to true to enable console logging
+
+// Debug logger
+const settingsLog = {
+  info: (...args) => DEBUG && console.info('[Settings]', ...args),
+  warn: (...args) => DEBUG && console.warn('[Settings]', ...args),
+  error: (...args) => console.error('[Settings]', ...args)
+};
+
 let settings = null;
 let history = [];
 let favorites = [];
@@ -45,7 +55,7 @@ async function init() {
     setupEventListeners();
     
   } catch (error) {
-    console.error('Error initializing settings:', error);
+    settingsLog.error('Error initializing settings:', error);
     showStatus('Error loading settings', 'error');
   }
 }
@@ -182,7 +192,7 @@ async function saveSettings() {
     // Notify background script and all tabs about settings change
     chrome.runtime.sendMessage({ action: 'settingsUpdated', settings: newSettings }, () => {
       if (chrome.runtime.lastError) {
-        console.log('Background script not listening (this is OK)');
+        settingsLog.info('Background script not listening (this is OK)');
       }
     });
     
@@ -198,7 +208,7 @@ async function saveSettings() {
     });
     
   } catch (error) {
-    console.error('Error saving settings:', error);
+    settingsLog.error('Error saving settings:', error);
     showStatus('Error saving settings', 'error');
   }
 }
@@ -215,7 +225,7 @@ async function clearHistory() {
     updateStats();
     showStatus('History cleared', 'success');
   } catch (error) {
-    console.error('Error clearing history:', error);
+    settingsLog.error('Error clearing history:', error);
     showStatus('Error clearing history', 'error');
   }
 }
@@ -232,7 +242,7 @@ async function clearFavorites() {
     updateStats();
     showStatus('Favorites cleared', 'success');
   } catch (error) {
-    console.error('Error clearing favorites:', error);
+    settingsLog.error('Error clearing favorites:', error);
     showStatus('Error clearing favorites', 'error');
   }
 }
@@ -264,7 +274,7 @@ async function exportData() {
     showStatus('Data exported successfully', 'success');
     
   } catch (error) {
-    console.error('Error exporting data:', error);
+    settingsLog.error('Error exporting data:', error);
     showStatus('Error exporting data', 'error');
   }
 }

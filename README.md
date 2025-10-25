@@ -102,6 +102,17 @@ A browser extension that replaces your new tab page with beautiful, high-quality
 - Chrome Storage API
 - Chrome Alarms API
 
+### Debug Mode
+
+To enable console logging for development:
+
+1. Open the JavaScript files (newtab.js, background.js, settings.js, lib/unsplash-api.js)
+2. Change `const DEBUG = false;` to `const DEBUG = true;` at the top of each file
+3. Reload the extension
+4. Console logs will now appear in the browser console (F12)
+
+Note: Error messages are always logged regardless of debug mode.
+
 ## Troubleshooting
 
 **Images not loading?**

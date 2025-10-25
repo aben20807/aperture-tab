@@ -1,8 +1,18 @@
 // Background Service Worker for Aperture Tab Extension
 
+// Debug configuration
+const DEBUG = false; // Set to true to enable console logging
+
+// Debug logger
+const bgLog = {
+  info: (...args) => DEBUG && console.info('[Background]', ...args),
+  warn: (...args) => DEBUG && console.warn('[Background]', ...args),
+  error: (...args) => console.error('[Background]', ...args)
+};
+
 // Initialize extension on install
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Aperture Tab Extension installed');
+  bgLog.info('Aperture Tab Extension installed');
   
   // Set default settings
   const defaultSettings = {
@@ -26,7 +36,7 @@ chrome.runtime.onInstalled.addListener(() => {
 // Handle auto-refresh based on settings
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'autoRefresh') {
-    console.log('Auto-refresh alarm triggered, loading new photo...');
+    bgLog.info('Auto-refresh alarm triggered, loading new photo...');
     
     // Get settings and load a new photo
     const data = await chrome.storage.local.get(['settings', 'imageQueue']);
@@ -34,7 +44,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     const imageQueue = data.imageQueue || [];
     
     if (!settings || !settings.apiKey) {
-      console.log('No API key, skipping auto-refresh');
+      bgLog.info('No API key, skipping auto-refresh');
       return;
     }
     
@@ -43,21 +53,21 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (imageQueue.length > 0) {
       photo = imageQueue.shift();
       await chrome.storage.local.set({ imageQueue });
-      console.log('Using photo from queue, remaining:', imageQueue.length);
+      bgLog.info('Using photo from queue, remaining:', imageQueue.length);
     }
     
     if (photo) {
       // Save as new global photo with current timestamp
       photo.timestamp = Date.now();
       await chrome.storage.local.set({ lastGlobalPhoto: photo });
-      console.log('Updated lastGlobalPhoto from queue');
+      bgLog.info('Updated lastGlobalPhoto from queue');
       
       // Notify all tabs to update (they should reload from storage)
       chrome.runtime.sendMessage({ action: 'photoUpdated' }).catch(() => {
         // No tabs listening, that's okay
       });
     } else {
-      console.log('Queue empty, tabs will fetch on next open');
+      bgLog.info('Queue empty, tabs will fetch on next open');
     }
   }
 });
@@ -92,7 +102,7 @@ function setupAutoRefresh(settings) {
       periodInMinutes: minutes
     });
     
-    console.log('Auto-refresh alarm set for', minutes, 'minutes');
+    bgLog.info('Auto-refresh alarm set for', minutes, 'minutes');
   });
 }
 
