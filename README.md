@@ -149,6 +149,24 @@ This extension requires the following Chrome permissions:
 
 All data remains on your device. No information is sent to external servers except API requests to Unsplash.
 
+## Similar Extensions
+
+If you're looking for alternatives, here are some popular Unsplash-based new tab extensions:
+
+- [Unsplash Instant](https://chromewebstore.google.com/detail/unsplash-instant/embphhnhnpokdhfdmgjfdppdapaedlgk)
+- [Unsplash Instant Reborn](https://chromewebstore.google.com/detail/unsplash-instant-reborn/nhielejgoepolmhbgbhfiijgniefalki)
+- [Unsplash Wanderer](https://chromewebstore.google.com/detail/unsplash-wanderer/jdjjjnfdkhpdppedhjgdcecmmcmklopm)
+- [Unsplash New Tab](https://chromewebstore.google.com/detail/unsplash-new-tab/endjkljkojbohljcecpclkbiocdikhce)
+
+**What makes Aperture Tab different:**
+
+- **EXIF Metadata Focus** - Shows detailed camera settings (aperture, shutter speed, ISO, focal length)
+- **EXIF Filtering** - Only displays photos with complete camera metadata
+- **Configurable Queue System** - Prefetch 3-15 images with browser cache preloading
+- **Custom Timer Intervals** - Set any interval from 1-1440 minutes
+- **Privacy-First** - No telemetry, no external servers, all data stored locally
+- **Open Source** - Full transparency and customization
+
 ## License
 
 Apache 2.0 License - see [LICENSE](LICENSE) file for details.
@@ -162,4 +180,7 @@ Photos provided by Unsplash photographers under the [Unsplash License](https://u
 
 ---
 
-**Note**: This extension requires a free Unsplash API key. Your API key is stored locally and never transmitted to any server except Unsplash's official API.
+**Note**:
+
+- This extension requires a free Unsplash API key. Your API key is stored locally and never transmitted to any server except Unsplash's official API.
+- This extension was developed with substantial assistance from GitHub Copilot (Claude Sonnet 4.5) and refined through human feedback.
