@@ -144,7 +144,6 @@ Note: Error messages are always logged regardless of debug mode.
 This extension requires the following Chrome permissions:
 
 - **storage** - Store settings, history, favorites, and image queue locally on your device
-- **tabs** - Enable keyboard shortcuts and tab-specific features
 - **alarms** - Run background timers for auto-refresh intervals (30min, 1hour, daily, custom)
 
 All data remains on your device. No information is sent to external servers except API requests to Unsplash.
