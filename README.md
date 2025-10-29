@@ -2,6 +2,8 @@
 
 A browser extension that replaces your new tab page with beautiful, high-quality photos from Unsplash, featuring camera EXIF metadata and photographer attribution.
 
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/epgdbpdboleloghfpeldfpogkninghna?label=Chrome%20Web%20Store&logo=google-chrome)](https://chromewebstore.google.com/detail/aperture-tab/epgdbpdboleloghfpeldfpogkninghna)
+
 ## Features
 
 - Random Unsplash photos with camera EXIF metadata (aperture, shutter speed, ISO, focal length)
